@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import pandas as pd
 import operator
@@ -24,7 +25,8 @@ def calculateDistance(point1, point2, dimension):
 
     """
     distance=0
-    for x in range(dimension):
+    # print 'p1: ' + str(point1) + 'p2: ' + str(point2) + str(dimension)
+    for x in range(dimension - 1):
         distance += pow((point1[x] - point2[x]), 2)
     return math.sqrt(distance)
 
@@ -80,7 +82,7 @@ def getResponse(neighbors):
             count[True] += 1
         else:
             count[False] += 1
-    print count
+    # print count
     if count[True] > count[False]:
         return True
     else:
@@ -88,32 +90,42 @@ def getResponse(neighbors):
 
 
 
-def crossValidation(training):
+def crossValidation(training, k, performance):
     """Short summary.
-        Run 5-fold cross validation
+        Perform 5-fold cross validation given the training set
     Parameters
     ----------
     training : type
-        Description of parameter `training`.
+        the training set to be considered
+    k : type
+        hyperparameter 'k' to be tuned
+    performance : type
+        dictionary to store the k-value and the respective accuracies
 
     Returns
     -------
-    type
-        Description of returned object.
+    dictionary to store the k-value and the respective accuracies
+
 
     """
+
     predictions = []
+    accuracy = []
+
     for index in range(1, 6):
-        print index
+        # print index
         temp = list(range(1, 6))
         temp.remove(index)
-        k = 3
+        print 'index: ' + str(index) + ', temp: ' + str(temp)
+
         for x in range(len(training.get_group(index))):
+            if x % 50 != 0:
+                continue
             target = training.get_group(index).values.tolist()[x][-1]
-            print x
+            # if x % 500 == 0:
+            #     print 'index: ' + str(index) + ', x: ' + str(x)
             neighbors = []
             distances = []
-            accuracy = []
             for validationSet in temp:
                 getNeighbors(training.get_group(validationSet).values.tolist(), training.get_group(index).values.tolist()[x], distances)
             # Sort the distances list by the distance
@@ -125,9 +137,9 @@ def crossValidation(training):
 
             result=getResponse(neighbors)
 
-            print distances
-            print neighbors
-            print result
+            # print distances
+            # print neighbors
+            # print result
             predictions.append(result)
             # print 'result: ' + str(result)
             # print 'target: ' + str(target)
@@ -137,7 +149,19 @@ def crossValidation(training):
             else:
                 accuracy.append(False)
 
+        print 'number of instances: ' + str(len(accuracy)) + ' number correct: ' + str(sum(accuracy))
+
+    # Add the current k-value and its accuracy for this run to dictionary
+    performance[k] = sum(accuracy) / len(accuracy)
+
+    print performance
+    return performance
+
 def main():
+    """Short summary.
+        main driver for this file
+    """
+    # Read in trainingSet and testSet as a DataFrame
     trainingOriginal = pd.read_csv(
         filepath_or_buffer="~/Desktop/KNN Implementation/adult.train.5fold.csv")
     testOriginal = pd.read_csv(filepath_or_buffer="~/Desktop/KNN Implementation/adult.test.csv")
@@ -146,16 +170,59 @@ def main():
     training = pd.DataFrame(trainingOriginal.select_dtypes(['number']))
     training = pd.concat([training.reset_index(drop=True),
                          trainingOriginal['earns'].reset_index(drop=True)], axis=1)
+
     # Select only the numeric data
     test = pd.DataFrame(testOriginal.select_dtypes(['number']))
     test = pd.concat([test.reset_index(drop=True),
                      testOriginal['earns'].reset_index(drop=True)], axis=1)
 
+    # Normalize the columns for training and test
+    # print training['age'].min()
+    # print training['age'].max()
+    # print training.head()
+
+    # Run max-min normalization on numerical columns for testing and training data
+    for i in range(6):
+        training.iloc[:, i] =  (training.iloc[:, i]- training.iloc[:, i].min())/(training.iloc[:, i].max() - training.iloc[:, i].min())
+        test.iloc[:, i] =  (test.iloc[:, i]- test.iloc[:, i].min())/(test.iloc[:, i].max() - test.iloc[:, i].min())
+
+    # Convert the 'earns' column to boolean as follows
     training['earns'] = training['earns'] == '>50K'
     test['earns'] = test['earns'] == ' >50K'
 
+    # Group the training set by the fold attribute as given by the dataset
     training = training.groupby('fold')
 
-    crossValidation(training)
+    # Since we want to consider odd k-values from 1 to 39, construct a list with these values
+    kList = []
+    for i in range(40):
+        if i % 2 == 1:
+            kList.append(i)
+    print kList
 
+    # Empty dictionary to hold performance of each k-values and its accuracy
+    performance = {}
+    print performance
+
+    # Compute the performance for each k-value
+    for k in kList:
+        performance = crossValidation(training, k, performance)
+
+    # Sort the performance dictionary by its accuracy (value)
+    performance = sorted(performance.items(), key=operator.itemgetter(1), reverse=True)
+
+    # Open file to write results
+    file = open('grid.results.txt', 'w')
+    # Write the results to file
+    file.write("K   |  Accuracy\n")
+    for item in performance:
+        if item[0] < 10:
+            file.write(str(item[0]) + '   |  ' + str(item[1]) + '\n')
+        else:
+            file.write(str(item[0]) + '  |  ' + str(item[1]) + '\n')
+    # Close file
+    file.close()
+    print performance
+
+# Run the program
 main()
