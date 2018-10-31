@@ -3,6 +3,7 @@ import pandas as pd
 import operator
 import math
 
+
 def calculateDistance(point1, point2, dimension):
     distance=0
     for x in range(dimension):
@@ -77,8 +78,8 @@ def crossValidation(training):
 
 def main():
     trainingOriginal = pd.read_csv(
-        filepath_or_buffer="~/Desktop/adult.train.5fold.csv")
-    testOriginal = pd.read_csv(filepath_or_buffer="~/Desktop/adult.test.csv")
+        filepath_or_buffer="~/Desktop/KNN Implmentation/adult.train.5fold.csv")
+    testOriginal = pd.read_csv(filepath_or_buffer="~/Desktop/KNN Implmentation/adult.test.csv")
 
     # Select only the numeric data
     training = pd.DataFrame(trainingOriginal.select_dtypes(['number']))
@@ -97,18 +98,3 @@ def main():
     crossValidation(training)
 
 main()
-
-# print training.get_group(1).values.tolist()
-
-
-
-# trainSet = [[2, 2, 2, 'a'], [4, 4, 4, 'b']]
-# testInstance = [5, 5, 5]
-# k = 1
-# neighbors = getNeighbors(trainSet, testInstance, 1)
-# print(neighbors)
-
-
-# neighbors = [[1, 1, 1, 'a'], [2, 2, 2, 'a'], [3, 3, 3, 'b']]
-# response = getResponse(neighbors)
-# print(response)
