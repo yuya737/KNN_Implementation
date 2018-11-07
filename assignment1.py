@@ -30,7 +30,7 @@ def calculateDistance(point1, point2, dimension):
         distance += pow((point1[x] - point2[x]), 2)
     return math.sqrt(distance)
 
-def getNeighbors(trainingSet, testInstance, distances):
+def getDistances(trainingSet, testInstance, distances):
     """Short summary.
         get a list of tuples, containing the data point and the distance from the testInstance
     Parameters
@@ -116,10 +116,10 @@ def crossValidation(training, k, performance):
         # print index
         temp = list(range(1, 6))
         temp.remove(index)
-        print 'index: ' + str(index) + ', temp: ' + str(temp)
+        # print 'index: ' + str(index) + ', temp: ' + str(temp)
 
         for x in range(len(training.get_group(index))):
-            if x % 50 != 0:
+            if x % 100 != 0:
                 continue
             target = training.get_group(index).values.tolist()[x][-1]
             # if x % 500 == 0:
@@ -127,7 +127,7 @@ def crossValidation(training, k, performance):
             neighbors = []
             distances = []
             for validationSet in temp:
-                getNeighbors(training.get_group(validationSet).values.tolist(), training.get_group(index).values.tolist()[x], distances)
+                getDistances(training.get_group(validationSet).values.tolist(), training.get_group(index).values.tolist()[x], distances)
             # Sort the distances list by the distance
             distances.sort(key = lambda item: item[1])
             # print distances
@@ -145,17 +145,86 @@ def crossValidation(training, k, performance):
             # print 'target: ' + str(target)
             # print 'result == target: ' + str(result == target)
             if result == target:
-                accuracy.append(True)
+                accuracy.append((True, target))
             else:
-                accuracy.append(False)
+                accuracy.append((False, target))
 
-        print 'number of instances: ' + str(len(accuracy)) + ' number correct: ' + str(sum(accuracy))
+        count = 0
+        for item in accuracy:
+            if item[0] == True:
+                count += 1
+
+        # print 'number of instances: ' + str(len(accuracy)) + ' number correct: ' + str(count)
+
+    count = 0
+    for item in accuracy:
+        if item[0] == True:
+            count += 1
 
     # Add the current k-value and its accuracy for this run to dictionary
-    performance[k] = sum(accuracy) / len(accuracy)
+    performance[k] = count / len(accuracy)
 
     print performance
     return performance
+
+
+def applyModel(training, test, k):
+
+    predictions = []
+    accuracy = []
+
+    for x in range(len(test)):
+
+        target = test.values.tolist()[x][-1]
+
+        neighbors = []
+        distances = []
+
+        getDistances(training.values.tolist(), test.values.tolist()[x], distances)
+        # Sort the distances list by the distance
+        distances.sort(key = lambda item: item[1])
+        # print distances
+        # Select first k closest elements to return as the neighbors
+        for x in range(k):
+            neighbors.append(distances[x][0])
+
+        result=getResponse(neighbors)
+
+        predictions.append(result)
+        if result == target:
+            accuracy.append((True, target))
+        else:
+            accuracy.append((False, target))
+
+    # Initialize variables to store information for confusion matrix. (TaTruePrTrue means, Target: True, Predicted: False)
+    TaTruePrTrue = 0
+    TaTruePrFalse = 0
+    TaFalsePrTrue = 0
+    TaFalsePrFalse = 0
+
+    # For each item, increment the correct count
+    for item in accuracy:
+        if item[0] == True:
+            if item[1] == True:
+                TaTruePrTrue += 1
+            else:
+                TaFalsePrFalse += 1
+        else:
+            if item[1] == False:
+                TaFalsePrTrue += 1
+            else:
+                TaTruePrFalse += 1
+
+    # Print the information
+    print 'number of instances: ' + str(len(accuracy)) + ' number correct: ' + str(TaTruePrTrue + TaFalsePrFalse)
+    print 'Target: True, Predicted: True  ' + str(TaTruePrTrue)
+    print 'Target: True, Predicted: False  ' + str(TaTruePrFalse)
+    print 'Target: False, Predicted: True  ' + str(TaFalsePrTrue)
+    print 'Target: False, Predicted: False  ' + str(TaFalsePrFalse)
+    print 'Precision: ' + str(TaTruePrTrue / (TaTruePrTrue + TaFalsePrTrue))
+    print 'Sensitivity: ' + str(TaTruePrTrue / (TaTruePrTrue + TaTruePrFalse))
+    print 'Specificity: ' + str(TaFalsePrFalse / (TaFalsePrFalse + TaTruePrFalse))
+
 
 def main():
     """Short summary.
@@ -191,6 +260,7 @@ def main():
     test['earns'] = test['earns'] == ' >50K'
 
     # Group the training set by the fold attribute as given by the dataset
+    trainingForFinal = training
     training = training.groupby('fold')
 
     # Since we want to consider odd k-values from 1 to 39, construct a list with these values
@@ -198,11 +268,9 @@ def main():
     for i in range(40):
         if i % 2 == 1:
             kList.append(i)
-    print kList
 
     # Empty dictionary to hold performance of each k-values and its accuracy
     performance = {}
-    print performance
 
     # Compute the performance for each k-value
     for k in kList:
@@ -222,7 +290,13 @@ def main():
             file.write(str(item[0]) + '  |  ' + str(item[1]) + '\n')
     # Close file
     file.close()
-    print performance
+
+    # The best K is the one at the top of the list after the sorting
+    bestK = performance[0][0]
+
+    print 'Running Test Set with K = ' + str(bestK)
+
+    applyModel(test,trainingForFinal,bestK)
 
 # Run the program
 main()
